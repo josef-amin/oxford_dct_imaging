@@ -17,6 +17,7 @@ handling the imbalance, add it here (or anywhere else) and compare it.
 from __future__ import annotations
 
 import numpy as np
+from torch import nn
 
 LOSSES = ("ce", "weighted_ce", "focal", "logit_adjusted")
 SAMPLERS = ("none", "balanced")
@@ -41,7 +42,10 @@ def make_loss(name: str, counts: np.ndarray):
         return nn.CrossEntropyLoss()
 
     if name == "weighted_ce":
-        # TODO: cross-entropy where each class is weighted, e.g. by 1/count or by the
+        weights = 1.0 / np.maximum(counts, 1)
+        weights = torch.tensor(weights, dtype=torch.float32)
+        return nn.CrossEntropyLoss(weight=weights)
+         # TODO: cross-entropy where each class is weighted, e.g. by 1/count or by the
         # "effective number of samples" (Cui et al. 2019, https://arxiv.org/abs/1901.05555).
         # Hint: nn.CrossEntropyLoss(weight=torch.tensor(w, dtype=torch.float32)).
         # Remember the weights must end up on the same device as the logits.
