@@ -27,12 +27,13 @@ def class_counts(targets: np.ndarray, num_classes: int) -> np.ndarray:
     return np.bincount(np.asarray(targets), minlength=num_classes)
 
 
-def make_loss(name: str, counts: np.ndarray):
+def make_loss(name: str, counts: np.ndarray, tau: float = 1.0):
     """Return a loss ``f(logits, targets) -> scalar`` for training.
 
     Args:
         name: one of LOSSES.
         counts: training examples per class (from :func:`class_counts`).
+        tau: logit adjustment tuning parameter; must be > 0.
     """
     import torch  # noqa: F401 - you will need it for the TODOs below
     import torch.nn as nn
@@ -55,12 +56,28 @@ def make_loss(name: str, counts: np.ndarray):
         raise NotImplementedError("focal: see the TODO in src/plankton/imbalance.py")
 
     if name == "logit_adjusted":
-        # TODO: logit-adjusted loss (Menon et al. 2021, https://arxiv.org/abs/2007.07314):
+        # logit-adjusted loss (Menon et al. 2021, https://arxiv.org/abs/2007.07314):
         # add tau * log(prior) to the logits before cross-entropy during training,
         # where prior = counts / counts.sum(). At test time use the raw logits.
         # Bonus: the same adjustment can instead be applied post hoc to a model trained
         # with plain "ce". Compare the two!
-        raise NotImplementedError("logit_adjusted: see the TODO in src/plankton/imbalance.py")
+
+        log_prior = np.log(counts / counts.sum())   # log(prior), a measure of the class rarity in the training data.
+        
+        def logit_adjusted_loss(logits, targets):
+            """
+            Return the logit-adjusted cross-entropy loss for given logits and ground-truth targets.
+            """
+            prior = torch.as_tensor(
+                log_prior, dtype=logits.dtype, device=logits.device # Convert log_prior into a PyTorch tensor to correctly add prior offsets
+            )
+            return nn.functional.cross_entropy(
+                logits + tau * prior,   # Adjusted logits
+                targets,                # Ground-truth class labels
+            )
+        
+        return logit_adjusted_loss
+
 
     raise ValueError(f"loss must be one of {LOSSES}")
 
