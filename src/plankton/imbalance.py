@@ -49,10 +49,27 @@ def make_loss(name: str, counts: np.ndarray):
 
     if name == "focal":
         # TODO: focal loss (Lin et al. 2017, https://arxiv.org/abs/1708.02002):
+       def focal_loss(logits, targets, gamma=2.0):
+            #step 1: compute the cross entropy 
+            ce = nn.functional.cross_entropy(logits, targets, reduction='none')
+
+            #step 2: calculate the probability of the true class 
+            p_t = torch.exp(-ce)
+
+            #step 3: apply the focal weighting factor 
+            loss = (1 - p_t) ** gamma * ce
+
+            #step 4: return the mean loss over the batch
+            return loss.mean()
+       return focal_loss
+
+
+
+
         #   FL = -(1 - p_t)^gamma * log(p_t)
         # down-weights easy, confident examples (most detritus) so training focuses on
         # hard ones. Try gamma in {1, 2, 5}.
-        raise NotImplementedError("focal: see the TODO in src/plankton/imbalance.py")
+
 
     if name == "logit_adjusted":
         # TODO: logit-adjusted loss (Menon et al. 2021, https://arxiv.org/abs/2007.07314):
